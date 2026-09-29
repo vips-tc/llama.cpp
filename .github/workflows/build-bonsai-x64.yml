@@ -1,0 +1,48 @@
+name: Build ubuntu-x64 CPU (bonsai)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci-bonsai-x64]
+
+jobs:
+  ubuntu-x64-cpu:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ci-bonsai-x64
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libssl-dev
+
+      - name: Build (CPU-only, all x86 variants with runtime dispatch)
+        run: |
+          cmake -B build \
+            -DCMAKE_INSTALL_RPATH='$ORIGIN' \
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+            -DGGML_BACKEND_DL=ON \
+            -DGGML_NATIVE=OFF \
+            -DGGML_CPU_ALL_VARIANTS=ON \
+            -DLLAMA_FATAL_WARNINGS=ON \
+            -DLLAMA_BUILD_EXAMPLES=ON \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_TOOLS=ON \
+            -DLLAMA_BUILD_SERVER=ON \
+            -DGGML_RPC=ON
+          cmake --build build --config Release -j $(nproc)
+
+      - name: Pack
+        run: |
+          cp LICENSE ./build/bin/
+          tar -czvf llama-bonsai-ubuntu-x64.tar.gz --transform "s,./,llama-bonsai/," -C ./build/bin .
+
+      - name: Upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: llama-bonsai-ubuntu-x64
+          path: llama-bonsai-ubuntu-x64.tar.gz
